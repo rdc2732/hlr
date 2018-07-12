@@ -13,9 +13,12 @@
 import sys
 import re
 import glob
+import csv
 
 signal_list = {}  # will contain a key:value; key = signal_name, value is a list[modules]
 hlr_list = {}     # will contain a key:value; key = (hlr pair), value is list[signals]
+
+csvfile = 'hlr_signals.csv'
 
 # Parse all rtf files for signals and store results in signal_list dictionary
 for filename in glob.iglob('*.rtf'):
@@ -65,3 +68,23 @@ for signal in sorted(signal_list):
 print("====================")
 print("Total HLR Pairs:", len(hlr_list))
 print("====================")
+
+# Write data to a csv file format suitable for pivot table analysis
+# Columns: HLR1, HLR2, Signal
+
+csv_data = [['HLR1', 'HLR2', 'Signals']]
+
+for hlr_pair in hlr_list:
+    hlr1 = hlr_pair[0]
+    hlr2 = hlr_pair[1]
+    for sig in hlr_list[hlr_pair]:
+        csv_row = [hlr1, hlr2, sig]
+        csv_data.append(csv_row)
+
+myFile = open(csvfile, 'w', newline='')
+with myFile:
+   writer = csv.writer(myFile)
+   writer.writerows(csv_data)
+
+for row in csv_data:
+    print(row)
