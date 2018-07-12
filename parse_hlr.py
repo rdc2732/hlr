@@ -19,6 +19,7 @@ signal_list = {}  # will contain a key:value; key = signal_name, value is a list
 hlr_list = {}     # will contain a key:value; key = (hlr pair), value is list[signals]
 
 csvfile = 'hlr_signals.csv'
+dotfile = 'hlr_signals.dot'
 
 # Parse all rtf files for signals and store results in signal_list dictionary
 for filename in glob.iglob('*.rtf'):
@@ -71,7 +72,6 @@ print("====================")
 
 # Write data to a csv file format suitable for pivot table analysis
 # Columns: HLR1, HLR2, Signal
-
 csv_data = [['HLR1', 'HLR2', 'Signals']]
 
 for hlr_pair in hlr_list:
@@ -85,6 +85,26 @@ myFile = open(csvfile, 'w', newline='')
 with myFile:
    writer = csv.writer(myFile)
    writer.writerows(csv_data)
+myFile.close()
 
-for row in csv_data:
-    print(row)
+# Write data to .dot file suitable for generating graph with Graphiz
+#    process hlr_list for graph
+#    open file for write
+#    write 'header' part
+#    loop: write each line HLR pair with a label for number of signals
+myFile = open(dotfile, 'w')
+myFile.write("digraph HLR {\n")
+
+for hlr_pair in hlr_list:
+    hlr1 = hlr_pair[0][:5]
+    hlr2 = hlr_pair[1][:5]
+    sigcount = len(hlr_list[hlr_pair])
+    myFile.write(f'  {hlr1} -> {hlr2} [label="{sigcount}"]\n')
+
+myFile.write("}\n")
+myFile.close()
+
+
+
+
+
