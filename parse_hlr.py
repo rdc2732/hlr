@@ -19,7 +19,7 @@ signal_list = {}  # will contain a key:value; key = signal_name, value is a list
 hlr_list = {}     # will contain a key:value; key = (hlr pair), value is list[signals]
 
 csvfile = 'hlr_signals.csv'
-dotfile = 'hlr_signals.dot'
+dotfile = 'hlr_signals.gfz'
 
 # Parse all rtf files for signals and store results in signal_list dictionary
 for filename in glob.iglob('*.rtf'):
@@ -93,13 +93,13 @@ myFile.close()
 #    write 'header' part
 #    loop: write each line HLR pair with a label for number of signals
 myFile = open(dotfile, 'w')
-myFile.write("digraph HLR {\n")
+myFile.write("graph HLR {\n")
 
 for hlr_pair in hlr_list:
     hlr1 = hlr_pair[0][:5]
     hlr2 = hlr_pair[1][:5]
     sigcount = len(hlr_list[hlr_pair])
-    myFile.write(f'  {hlr1} -> {hlr2} [label="{sigcount}"]\n')
+    myFile.write(f'  {hlr1} -- {hlr2} [label="{sigcount}"]\n')
 
 myFile.write("}\n")
 myFile.close()
