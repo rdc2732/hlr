@@ -12,27 +12,40 @@
 
 import sys
 import re
+import glob
 
-signal_list = []
-filename = sys.argv[1]
-rtffile = open(filename,"r")
+signal_list = {}  # will contain a key:value; key = signal_name, value is a dict[modules]
 
-for line in rtffile:
-    if line.find("{\\info") == 0:    # Look for /info line to get module name
-        start = line.find("{\\subject") + 10
-        stop = line.find("}", start)
-        module_name = filename[0:filename.find(".")].upper() + " - " + line[start:stop]
-        print(module_name)
-    signals = re.findall(r'(\[(.*?)\])', line)
-    for signal in signals:
-        if (len(signal[0]) < 100) and signal[0] not in signal_list:
-            signal_list.append(signal[0])
+for filename in glob.iglob('*.rtf'):
+    rtffile = open(filename,"r")
+    module_name = filename[0:filename.find(".")].upper()
+    title = "Not Assigned"
 
-rtffile.close()
+    for line in rtffile:    # Parse file for all [signal_names] and module name
+        if line.find("{\\info") >= 0:    # Look for /info line to get module name
+            start = line.find("{\\subject") + 10
+            stop = line.find("}", start)
+            title = line[start:stop]
+            module_name += " - " + title
+        signals = re.findall(r'(\[(.*?)\])', line) # returns a tuple ([signal], signal)
+        for signal in signals:
+            signal_name = signal[0]
+            # if signal_name == "WOW":
+            #     print(module_name)
+            if signal_name in signal_list: # Append module to signal's existing module list
+                module_list = signal_list[signal_name]
+                if module_name not in module_list:
+                    module_list.append(module_name)
+            else:
+                module_list = [module_name] # Create a module list for new signal
+            signal_list[signal_name] = module_list # Create or update signal_list
 
-print("Signals Found = ", len(signal_list))
-signal_list.sort()
-for signal in signal_list:
-    print(signal)
+    rtffile.close()
+
+print("====================")
+print("Total Signals:", len(signal_list))
+for signal in sorted(signal_list):
+    print(signal, signal_list[signal])
+print("====================")
 
 
