@@ -1,0 +1,3 @@
+digraph HLR {
+  HLR10 -> HLR12 [label="5"]
+}

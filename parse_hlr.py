@@ -16,6 +16,7 @@ import glob
 import csv
 
 signal_list = {}  # will contain a key:value; key = signal_name, value is a list[modules]
+modules = {}      # will contain a key:value; key = module name, value = flag if has signal pair
 hlr_list = {}     # will contain a key:value; key = (hlr pair), value is list[signals]
 
 csvfile = 'hlr_signals.csv'
@@ -28,15 +29,20 @@ for filename in glob.iglob('*.rtf'):
     title = "Not Assigned"
 
     for line in rtffile:    # Parse file for all [signal_names] and module name
+        if line.find("Inputs") >= 0 and line.find("Outputs") == -1:
+            print("Input\t", filename, "\t", line)
+        if line.find("Output") >= 0 and line.find("Inputs") == -1:
+            print("Output\t", filename, "\t", line)
         if line.find("{\\info") >= 0:    # Look for /info line to get module name
             start = line.find("{\\subject") + 10
             stop = line.find("}", start)
             title = line[start:stop]
             module_name += " - " + title
+            modules[module_name] = False # Create dictionary entry for module
         signals = re.findall(r'(\[(.*?)\])', line) # returns a tuple ([signal], signal)
         for signal in signals:
             signal_name = signal[0]
-            if signal_name.upper() == signal_name: # Eliminate things that have brackets but not uppercase
+            if signal_name.upper() == signal_name: #and len(signal_name) < 50: # Eliminate things that have brackets but not uppercase
                 if signal_name in signal_list: # Append module to signal's existing module list
                     module_list = signal_list[signal_name]
                     if module_name not in module_list:
@@ -44,9 +50,9 @@ for filename in glob.iglob('*.rtf'):
                 else:
                     module_list = [module_name] # Create a module list for new signal
                 signal_list[signal_name] = module_list # Create or update signal_list
+                modules[module_name] = True # Change flag to show module has signal pair(s)
             else:
                 print(filename, "||", module_name, "||", signal_name)
-
     rtffile.close()
 
 print("====================")
@@ -80,6 +86,15 @@ for hlr_pair in hlr_list:
     for sig in hlr_list[hlr_pair]:
         csv_row = [hlr1, hlr2, sig]
         csv_data.append(csv_row)
+#         csv_row = [hlr2, hlr1, sig]
+#         csv_data.append(csv_row)
+#
+# for module in modules:
+#     if modules[module] == False:
+#         hlr1 = module
+#         hlr2 = module
+#         csv_row = [hlr1, hlr2]
+#         csv_data.append(csv_row)
 
 myFile = open(csvfile, 'w', newline='')
 with myFile:

@@ -1,0 +1,6 @@
+HLR1,HLR2,Signals
+HLR10 - Drivers and Torque Motors,"HLR12 - ECU BIT, Health, and Arbitration",[ENGINE RUNNING]
+HLR10 - Drivers and Torque Motors,"HLR12 - ECU BIT, Health, and Arbitration",[LOCAL CHANNEL MASTER KILL COMMAND]
+HLR10 - Drivers and Torque Motors,"HLR12 - ECU BIT, Health, and Arbitration",[LOCAL CHANNEL METERING VALVE TORQUE MOTOR OUTPUT DRIVER FAILED]
+HLR10 - Drivers and Torque Motors,"HLR12 - ECU BIT, Health, and Arbitration",[LOCAL CHANNEL PROPELLER PITCH CONTROLLER OUTPUT DRIVER FAILED]
+HLR10 - Drivers and Torque Motors,"HLR12 - ECU BIT, Health, and Arbitration",[OVERALL LOSS OF PROPELLER PITCH CONTROLLER OUTPUT]
