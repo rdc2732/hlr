@@ -23,6 +23,7 @@ signal_list = {}  # will contain a key:value; key = signal_name, value is a list
 modules = {}      # will contain a key:value; key = module name, value = flag if has signal pair
 hlr_list = {}     # will contain a key:value; key = (hlr pair), value is list[signals]
 
+
 csvfile = 'hlr_signals.csv'
 dotfile = 'hlr_signals.gfz'
 
@@ -30,11 +31,13 @@ dotfile = 'hlr_signals.gfz'
 for filename in glob.iglob('*.txt'):
     hlrfile = open(filename, "r")
     module_name = filename[0:filename.find(".")].upper()
+    modules[module_name] = False # Preset that this module does not have any signals defined
     title = "Not Assigned"
     io_state = "None" # This is a flag that should be one of None, Input, Output
     line_type = "None" # This is a flag for each line; None, Signal, Attribute, Requirement, Heading
 
     for line in hlrfile:    # Parse file for all [signal_names] and module name
+        print(module_name, line)
         # Determine line_type and extract signal name and type
         line = line.rstrip()
 
@@ -46,9 +49,15 @@ for filename in glob.iglob('*.txt'):
                 line_type = "Attribute"
             elif len(signals) == 1 and line == signals[0][0]: # regex determined line is a signal name
                 line_type = "Signal"
-
-
-
+                signal_name = line
+                if signal_name in signal_list: # Append module to signal's existing module list
+                    module_list = signal_list[signal_name]
+                    if (module_name, io_state) not in module_list:
+                        module_list.append((module_name, io_state))
+                else:
+                    module_list = [(module_name, io_state)] # Create a module list for new signal
+                signal_list[signal_name] = module_list # Create or update signal_list
+                modules[module_name] = True  # Set true that this module does have signals defined
             elif line[0].isnumeric(): # line starting with a number are headings
                 line_type = "Heading"
                 if line.find("Input") >= 0 and line.find("Output") == -1: # heading starts input section
@@ -58,42 +67,35 @@ for filename in glob.iglob('*.txt'):
                 else:
                     io_state = "None" # some other kind of heading
 
-
-
-            if signal_name in signal_list: # Append module to signal's existing module list
-                module_list = signal_list[signal_name]
-                if module_name not in module_list:
-                    module_list.append(module_name)
-            else:
-                module_list = [module_name] # Create a module list for new signal
-
-            signal_list[signal_name] = module_list # Create or update signal_list
-            modules[module_name] = True # Change flag to show module has signal pair(s)
-
-
-
     hlrfile.close()
 
-# print("====================")
-# print("Total Signals:", len(signal_list))
-# print("====================")
-# for signal in sorted(signal_list):
-#     if len(signal_list[signal]) > 1:
-#         hlr_used = signal_list[signal]
-#         hlr_used.sort()
-#         for x in range(len(hlr_used) - 1):
-#             for y in range(x + 1, len(hlr_used)):
-#                 hlr_tuple = (hlr_used[x], hlr_used[y])
-#                 if hlr_tuple in hlr_list:  # Append signal to signal's existing hlr list
-#                     signals = hlr_list[hlr_tuple]
-#                     if signal not in signals:
-#                         signals.append(signal)
-#                 else:
-#                     signals = [signal]  # Create a module list for new signal
-#                 hlr_list[hlr_tuple] = signals  # Create or update signal_list
-# print("====================")
-# print("Total HLR Pairs:", len(hlr_list))
-# print("====================")
+# for s in signal_list:
+#     print(s, signal_list[s])
+#
+# for m in modules:
+#     print(m, modules[m])
+
+print("====================")
+print("Total Signals:", len(signal_list))
+print("====================")
+for signal in sorted(signal_list):
+    if len(signal_list[signal]) > 1:
+        hlr_used = signal_list[signal]
+        hlr_used.sort()
+        for x in range(len(hlr_used) - 1):
+            for y in range(x + 1, len(hlr_used)):
+                hlr_tuple = (hlr_used[x], hlr_used[y])
+                if hlr_tuple in hlr_list:  # Append signal to signal's existing hlr list
+                    signals = hlr_list[hlr_tuple]
+                    if signal not in signals:
+                        signals.append(signal)
+                else:
+                    signals = [signal]  # Create a module list for new signal
+                hlr_list[hlr_tuple] = signals  # Create or update signal_list
+print("====================")
+print("Total HLR Pairs:", len(hlr_list))
+print("====================")
+
 #
 # # Write data to a csv file format suitable for pivot table analysis
 # # Columns: HLR1, HLR2, Signal
