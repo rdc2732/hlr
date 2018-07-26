@@ -77,49 +77,25 @@ for filename in glob.iglob('*.txt'):
                 else:
                     io_state = "None" # some other kind of heading
 
-    hlrfile.close()
 
-print("====================")
-print("Input Signals:", len(input_signals))
-for s in sorted(input_signals):
-    print(s, input_signals[s])
+# Write data to .dot file suitable for generating graph with Graphiz
+#    process hlr_list for graph
+#    open file for write
+#    write 'header' part
+#    loop: write each line HLR pair with a label for number of signals
+myFile = open(dotfile, 'w')
+myFile.write("digraph HLR {\n")
 
-print("\nOutput Signals:", len(output_signals))
-for s in sorted(output_signals):
-    print(s, output_signals[s])
+common_signal_list = sorted(list(set(input_signals.keys()).intersection(output_signals.keys())))
+for sign in common_signal_list:
+    for output in output_signals[sign]:
+        for input in input_signals[sign]:
+            if output != input:
+                # myFile.write(f'  {output} -> {input} [label="{sign}"]\n')
+                myFile.write(f'  {output} -> {input} \n')
 
-print("====================")
-print(input_signals,"\n",output_signals)
-
-for m in modules:
-    print(m, modules[m])
-
-for signal in sorted(output_signals):
-    if len(output_signals[signal]) > 1:
-        hlr_used = output_signals[signal]
-        hlr_used.sort()
-        for x in range(len(hlr_used) - 1):
-            for y in range(x + 1, len(hlr_used)):
-                hlr_tuple = (hlr_used[x], hlr_used[y])
-                if hlr_tuple in hlr_list:  # Append signal to signal's existing hlr list
-                    signals = hlr_list[hlr_tuple]
-                    if signal not in signals:
-                        signals.append(signal)
-                else:
-                    signals = [signal]  # Create a module list for new signal
-                hlr_list[hlr_tuple] = signals  # Create or update signal_list
-print("====================")
-print("Total HLR Pairs:", len(hlr_list))
-print("====================")
-
-for h in sorted(hlr_list):
-    print(h, hlr_list[h])
-
-# List of signals that are inputs
-
-for sign in set(input_signals.keys()).intersection(output_signals.keys()):
-    print(sign)
-
+myFile.write("}\n")
+myFile.close()
 
 #
 # # Write data to a csv file format suitable for pivot table analysis
@@ -147,25 +123,4 @@ for sign in set(input_signals.keys()).intersection(output_signals.keys()):
 #    writer = csv.writer(myFile)
 #    writer.writerows(csv_data)
 # myFile.close()
-#
-# # Write data to .dot file suitable for generating graph with Graphiz
-# #    process hlr_list for graph
-# #    open file for write
-# #    write 'header' part
-# #    loop: write each line HLR pair with a label for number of signals
-# myFile = open(dotfile, 'w')
-# myFile.write("graph HLR {\n")
-#
-# for hlr_pair in hlr_list:
-#     hlr1 = hlr_pair[0][:5]
-#     hlr2 = hlr_pair[1][:5]
-#     sigcount = len(hlr_list[hlr_pair])
-#     myFile.write(f'  {hlr1} -- {hlr2} [label="{sigcount}"]\n')
-#
-# myFile.write("}\n")
-# myFile.close()
-#
-#
-#
-#
 #
