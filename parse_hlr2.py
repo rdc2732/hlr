@@ -24,10 +24,12 @@ input_signals = {}  # will contain a key:value; key = signal_name, value is a li
 output_signals = {}  # will contain a key:value; key = signal_name, value is a list[(modules, io_state)]
 modules = {}      # will contain a key:value; key = module name, value = flag if has signal pair
 hlr_list = {}     # will contain a key:value; key = (hlr pair), value is list[signals]
+sig_in_list = {}  # will contain a key:value; key = (signal), value is list[hlr_in]
 
 
 csvfile = 'hlr_signals.csv'
 dotfile = 'hlr_signals.gfz'
+dotfile2 = 'hlr_signals2.gfz'
 
 # Parse all txt files for signals and store results in signal_list dictionary
 for filename in glob.iglob('*.txt'):
@@ -97,6 +99,14 @@ for sign in common_signal_list:
                 hlr_list[(output, input)] = sig_list
             else:
                 hlr_list[(output, input)] = [sign]
+
+            # Create list of hlr_in for each signals in sig_in_list; {signal: [hlr_in]}
+            if output != input and sign in sig_in_list:
+                hlr_in_list = sig_in_list[sign]
+                hlr_in_list.append(input)
+                sig_in_list[sign] = hlr_in_list
+            else:
+                sig_in_list[sign] = [input]
 for hlr_pair in hlr_list:
     outhlr = hlr_pair[0]
     inhlr = hlr_pair[1]
@@ -104,10 +114,33 @@ for hlr_pair in hlr_list:
         sigcount = len(hlr_list[hlr_pair])
         count_label = str(sigcount)
         myFile.write(f'  {outhlr} -> {inhlr} [label="{count_label}"];\n')
-
 myFile.write("}\n")
 myFile.close()
 
+# Make version that shows pairs where there is only one input hlr
+myFile = open(dotfile2, 'w')
+myFile.write("digraph HLR {\n")
+
+hlr_pair_count = {}  # counter of hlr_pairs {hlr_pair : count}
+for sign in sig_in_list:
+    if len(sig_in_list[sign]) == 1:
+        hlr_in = sig_in_list[sign][0]
+        for hlr_pair in hlr_list:
+            if hlr_in == hlr_pair[1]:
+                if hlr_pair[0] != hlr_pair[1] and sign in hlr_list[hlr_pair]:
+                    if hlr_pair in hlr_pair_count:
+                        hlr_pair_count[hlr_pair] += 1
+                    else:
+                        hlr_pair_count[hlr_pair] = 1
+
+for hlr_pair in hlr_pair_count:
+    label = str(hlr_pair_count[hlr_pair])
+    outhlr = hlr_pair[0]
+    inhlr = hlr_pair[1]
+    myFile.write(f'  {outhlr} -> {inhlr} [label="{label}"];\n')
+
+myFile.write("}\n")
+myFile.close()
 
 # Write data to a csv file format suitable for pivot table analysis
 # Columns: HLR1, HLR2, Signal
