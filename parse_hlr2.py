@@ -108,30 +108,29 @@ for hlr_pair in hlr_list:
 myFile.write("}\n")
 myFile.close()
 
-#
-# # Write data to a csv file format suitable for pivot table analysis
-# # Columns: HLR1, HLR2, Signal
-# csv_data = [['HLR1', 'HLR2', 'Signals']]
-#
-# for hlr_pair in hlr_list:
-#     hlr1 = hlr_pair[0]
-#     hlr2 = hlr_pair[1]
-#     for sig in hlr_list[hlr_pair]:
-#         csv_row = [hlr1, hlr2, sig]
-#         csv_data.append(csv_row)
-# #         csv_row = [hlr2, hlr1, sig]
-# #         csv_data.append(csv_row)
-# #
-# # for module in modules:
-# #     if modules[module] == False:
-# #         hlr1 = module
-# #         hlr2 = module
-# #         csv_row = [hlr1, hlr2]
-# #         csv_data.append(csv_row)
-#
-# myFile = open(csvfile, 'w', newline='')
-# with myFile:
-#    writer = csv.writer(myFile)
-#    writer.writerows(csv_data)
-# myFile.close()
-#
+
+# Write data to a csv file format suitable for pivot table analysis
+# Columns: HLR1, HLR2, Signal
+csv_data = [['HLR_Out', 'HLR_In', 'Signals']]
+
+for hlr_pair in hlr_list:
+    hlr_out = hlr_pair[0]
+    hlr_in = hlr_pair[1]
+    if hlr_out != hlr_in:
+        for sig in hlr_list[hlr_pair]:
+            csv_row = [hlr_out, hlr_in, sig]
+            csv_data.append(csv_row)
+
+for module in modules:
+    if modules[module] == False:
+        hlr1 = module
+        hlr2 = module
+        csv_row = [hlr1, hlr2]
+        csv_data.append(csv_row)
+
+myFile = open(csvfile, 'w', newline='')
+with myFile:
+   writer = csv.writer(myFile)
+   writer.writerows(csv_data)
+myFile.close()
+
