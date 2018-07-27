@@ -90,9 +90,20 @@ common_signal_list = sorted(list(set(input_signals.keys()).intersection(output_s
 for sign in common_signal_list:
     for output in output_signals[sign]:
         for input in input_signals[sign]:
-            if output != input:
-                # myFile.write(f'  {output} -> {input} [label="{sign}"]\n')
-                myFile.write(f'  {output} -> {input} \n')
+            # Create list of signals between modules in hlr_list; {(hlr_out, hlr_in): [list of signals]}
+            if output != input and (output, input) in hlr_list:
+                sig_list = hlr_list[(output, input)]
+                sig_list.append(sign)
+                hlr_list[(output, input)] = sig_list
+            else:
+                hlr_list[(output, input)] = [sign]
+for hlr_pair in hlr_list:
+    outhlr = hlr_pair[0]
+    inhlr = hlr_pair[1]
+    if outhlr != inhlr:
+        sigcount = len(hlr_list[hlr_pair])
+        count_label = str(sigcount)
+        myFile.write(f'  {outhlr} -> {inhlr} [label="{count_label}"];\n')
 
 myFile.write("}\n")
 myFile.close()
