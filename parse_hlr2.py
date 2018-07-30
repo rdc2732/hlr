@@ -28,6 +28,8 @@ sig_in_list = {}  # will contain a key:value; key = (signal), value is list[hlr_
 
 
 csvfile = 'hlr_signals.csv'
+csvfile2 = 'hlr_signals2.csv'
+
 dotfile = 'hlr_signals.gfz'
 dotfile2 = 'hlr_signals2.gfz'
 
@@ -117,30 +119,6 @@ for hlr_pair in hlr_list:
 myFile.write("}\n")
 myFile.close()
 
-# Make version that shows pairs where there is only one input hlr
-myFile = open(dotfile2, 'w')
-myFile.write("digraph HLR {\n")
-
-hlr_pair_count = {}  # counter of hlr_pairs {hlr_pair : count}
-for sign in sig_in_list:
-    if len(sig_in_list[sign]) == 1:
-        hlr_in = sig_in_list[sign][0]
-        for hlr_pair in hlr_list:
-            if hlr_in == hlr_pair[1]:
-                if hlr_pair[0] != hlr_pair[1] and sign in hlr_list[hlr_pair]:
-                    if hlr_pair in hlr_pair_count:
-                        hlr_pair_count[hlr_pair] += 1
-                    else:
-                        hlr_pair_count[hlr_pair] = 1
-
-for hlr_pair in hlr_pair_count:
-    label = str(hlr_pair_count[hlr_pair])
-    outhlr = hlr_pair[0]
-    inhlr = hlr_pair[1]
-    myFile.write(f'  {outhlr} -> {inhlr} [label="{label}"];\n')
-
-myFile.write("}\n")
-myFile.close()
 
 # Write data to a csv file format suitable for pivot table analysis
 # Columns: HLR1, HLR2, Signal
@@ -162,6 +140,55 @@ for module in modules:
         csv_data.append(csv_row)
 
 myFile = open(csvfile, 'w', newline='')
+with myFile:
+   writer = csv.writer(myFile)
+   writer.writerows(csv_data)
+myFile.close()
+
+
+# Make version that shows pairs where there is only one input hlr
+myFile = open(dotfile2, 'w')
+myFile.write("digraph HLR {\n")
+
+hlr_pair_list = {}  # counter of hlr_pairs {hlr_pair : count}
+for sign in sig_in_list:
+    if len(sig_in_list[sign]) == 1:
+        hlr_in = sig_in_list[sign][0]
+        for hlr_pair in hlr_list:
+            if hlr_in == hlr_pair[1]:
+                if hlr_pair[0] != hlr_pair[1] and sign in hlr_list[hlr_pair]:
+                    if hlr_pair in hlr_pair_list:
+                        sig_list = hlr_pair_list[hlr_pair]
+                        sig_list.append(sign)
+                    else:
+                        sig_list = [sign]
+                    hlr_pair_list[hlr_pair] = sig_list
+
+for hlr_pair in hlr_pair_list:
+    hlr_out = hlr_pair[0]
+    hlr_in = hlr_pair[1]
+    label = str(len(hlr_pair_list[hlr_pair]))
+    outhlr = hlr_pair[0]
+    inhlr = hlr_pair[1]
+    myFile.write(f'  {outhlr} -> {inhlr} [label="{label}"];\n')
+
+myFile.write("}\n")
+myFile.close()
+
+
+# Write data to a csv file format suitable for pivot table analysis
+# Columns: HLR1, HLR2, Signal
+csv_data = [['HLR_Out', 'HLR_In', 'Signals']]
+
+for hlr_pair in hlr_pair_list:
+    hlr_out = hlr_pair[0]
+    hlr_in = hlr_pair[1]
+    if hlr_out != hlr_in:
+        for sig in hlr_pair_list[hlr_pair]:
+            csv_row = [hlr_out, hlr_in, sig]
+            csv_data.append(csv_row)
+
+myFile = open(csvfile2, 'w', newline='')
 with myFile:
    writer = csv.writer(myFile)
    writer.writerows(csv_data)
