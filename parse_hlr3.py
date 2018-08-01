@@ -101,14 +101,127 @@ for filename in glob.iglob('*.txt'):
 # Commit and close database
 con.commit()
 
-# # Write data to .dot file suitable for generating graph with Graphiz
-# #    process hlr_list for graph
-# #    open file for write
-# #    write 'header' part
-# #    loop: write each line HLR pair with a label for number of signals
-# myFile = open(dotfile, 'w')
-# myFile.write("digraph HLR {\n")
-#
+# 1) Create a dictionary of all signals { sig_id : sig_name}
+sig_dict = {}
+cur.execute('SELECT sig_id, sig_name FROM signals')
+for row in cur:
+    sig_dict[row[0]] = row[1]
+
+# 2) Create a dictionary of all modules { mod_id : mod_name}
+mod_dict = {}
+cur.execute('SELECT mod_id, mod_name FROM modules')
+for row in cur:
+    mod_dict[row[0]] = row[1]
+
+
+# 3) For each signal, build the list of output modules { sig_id : [hlr_out] }
+hlrout_dict = {}
+for id in list(sig_dict.keys()):
+    cur.execute(f'SELECT mod_id FROM modsigs WHERE mod_sig_type = "Output" and sig_id = {id}')
+    mods = []
+    for mod in cur.fetchall():
+        mods.append(mod[0])
+    hlrout_dict[id] = mods
+
+
+# 4) For each signal, build the list of input modules { sig_id : [hlr_in] }
+hlrin_dict = {}
+for id in list(sig_dict.keys()):
+    cur.execute(f'SELECT mod_id FROM modsigs WHERE mod_sig_type = "Input" and sig_id = {id}')
+    mods = []
+    for mod in cur.fetchall():
+        mods.append(mod[0])
+    hlrin_dict[id] = mods
+
+con.close()
+
+# 5) Write data to a csv file format suitable for pivot table analysis
+# Columns: HLR1, HLR2, Signal
+csv_data = [['HLR_Out', 'HLR_In', 'Signals']]
+
+for id in list(sig_dict.keys()):
+    outlist = list(set(hlrout_dict[id])) # use set to scrub for unique
+    inlist = list(set(hlrin_dict[id]))
+    hlr_pair_list = [(x, y) for x in outlist for y in inlist]
+    for hlr_pair in hlr_pair_list:
+        if hlr_pair[0] != hlr_pair[1]:
+            hlr_out = mod_dict[hlr_pair[0]]
+            hlr_in = mod_dict[hlr_pair[1]]
+            signal = sig_dict[id]
+            csv_row = [hlr_out, hlr_in, signal]
+            csv_data.append(csv_row)
+
+myFile = open(csvfile, 'w', newline='')
+with myFile:
+   writer = csv.writer(myFile)
+   writer.writerows(csv_data)
+myFile.close()
+
+
+# 6) Write data to .dot file suitable for generating graph with Graphiz
+myFile = open(dotfile, 'w')
+myFile.write("digraph HLR {\n")
+
+hlr_pair_count = {} # Count the number of signals between hlrs { (hlrout, hlrin) : int )
+for id in list(sig_dict.keys()):
+    outlist = list(set(hlrout_dict[id])) # use set to scrub for unique
+    inlist = list(set(hlrin_dict[id]))
+    hlr_pair_list = [(x, y) for x in outlist for y in inlist]
+    for hlr_pair in hlr_pair_list:
+        if hlr_pair[0] != hlr_pair[1]:
+            if hlr_pair in hlr_pair_count:
+                hlr_pair_count[hlr_pair] += 1
+            else:
+                hlr_pair_count[hlr_pair] = 1
+print(hlr_pair_count)
+
+for hlr_pair in hlr_pair_count:
+    hlr_out = mod_dict[hlr_pair[0]]
+    hlr_in = mod_dict[hlr_pair[1]]
+    count_label = str(hlr_pair_count[hlr_pair])
+    myFile.write(f'  {hlr_out} -> {hlr_in} [label="{count_label}"];\n')
+
+myFile.close()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 # common_signal_list = sorted(list(set(input_signals.keys()).intersection(output_signals.keys())))
 # for sign in common_signal_list:
 #     for output in output_signals[sign]:
@@ -137,75 +250,7 @@ con.commit()
 #         myFile.write(f'  {outhlr} -> {inhlr} [label="{count_label}"];\n')
 # myFile.write("}\n")
 # myFile.close()
-
-
-# select
-#     t1.sig_id, t1.mod_id, t2.mod_id
-# from
-#     modsigs as t1, modsigs as t2
-# where
-#     t1.mod_sig_type = 'Output' and
-#     t2.mod_sig_type = 'Input' and
-#     t1.sig_id = t2.sig_id and
-#     t1.mod_id != t2.mod_id
-# ;
-
-# select
-#     mod_name, sig_name, mod_sig_type, mod_sig_line
-# from
-#     Modules, Signals, ModSigs
-# where
-#     modules.mod_id = modsigs.mod_id and
-#     signals.sig_id = modsigs.sig_id
-# ;
-
-
-query = '''
-select
-	sig_name, t1.sig_id, mod_name, t1.mod_id, mod_name, t2.mod_id		
-from 
-	modsigs as t1, modsigs as t2, Signals, Modules
-where 
-	t1.mod_sig_type = 'Output' and 
-	t2.mod_sig_type = 'Input' and 
-	t1.sig_id = t2.sig_id and
-	Signals.sig_id = t1.sig_id and
-	Modules.mod_id = t1.mod_id and
-	Modules.mod_id = t2.mod_id
-'''
-cur.execute(query)
-
-
-# Write data to a csv file format suitable for pivot table analysis
-# Columns: HLR1, HLR2, Signal
-csv_data = [['HLR_Out', 'HLR_In', 'Signals']]
-
-for row in cur:
-    hlr_out = row[2]
-    hlr_in = row[4]
-    sig = row[0]
-    csv_row = [hlr_out, hlr_in, sig]
-    csv_data.append(csv_row)
-
-# for module in modules:
-#     if modules[module] == False:
-#         hlr1 = module
-#         hlr2 = module
-#         csv_row = [hlr1, hlr2]
-#         csv_data.append(csv_row)
-
-myFile = open(csvfile, 'w', newline='')
-with myFile:
-   writer = csv.writer(myFile)
-   writer.writerows(csv_data)
-myFile.close()
-
-
-
-
-
-
-
+#
 
 
 
@@ -257,5 +302,3 @@ myFile.close()
 #    writer.writerows(csv_data)
 # myFile.close()
 #
-
-con.close()
