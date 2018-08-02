@@ -25,12 +25,6 @@ import csv
 import codecs
 import sqlite3
 
-input_signals = {}  # will contain a key:value; key = signal_name, value is a list[(modules, io_state)]
-output_signals = {}  # will contain a key:value; key = signal_name, value is a list[(modules, io_state)]
-modules = {}      # will contain a key:value; key = module name, value = flag if has signal pair
-hlr_list = {}     # will contain a key:value; key = (hlr pair), value is list[signals]
-sig_in_list = {}  # will contain a key:value; key = (signal), value is list[hlr_in]
-
 # Define files
 sqldbfile = 'hlr.db'
 csvfile = 'hlr_signals.csv'
@@ -58,7 +52,6 @@ for filename in glob.iglob('*.txt'):
     hlrfile = open(filename, "r")
     hlrfile_line_count = 0
     module_name = filename[0:filename.find(".")].upper()
-    modules[module_name] = False # Preset that this module does not have any signals defined
     title = "Not Assigned"
     io_state = "None" # This is a flag that should be one of None, Input, Output
     line_type = "None" # This is a flag for each line; None, Signal, Attribute, Requirement, Heading
@@ -88,7 +81,6 @@ for filename in glob.iglob('*.txt'):
                 cur.execute('INSERT INTO ModSigs (mod_sig_type, mod_sig_line, mod_id, sig_id) \
                     VALUES (?,?,?,?)', (io_state, hlrfile_line_count, module_id, signal_id))
 
-                modules[module_name] = True  # Set true that this module does have signals defined
             elif line[0].isnumeric(): # line starting with a number are headings
                 line_type = "Heading"
                 if line.find("Input") >= 0 and line.find("Output") == -1: # heading starts input section
@@ -106,6 +98,7 @@ sig_dict = {}
 cur.execute('SELECT sig_id, sig_name FROM signals')
 for row in cur:
     sig_dict[row[0]] = row[1]
+
 
 # 2) Create a dictionary of all modules { mod_id : mod_name}
 mod_dict = {}
@@ -135,170 +128,119 @@ for id in list(sig_dict.keys()):
 
 con.close()
 
-# 5) Write data to a csv file format suitable for pivot table analysis
-# Columns: HLR1, HLR2, Signal
-csv_data = [['HLR_Out', 'HLR_In', 'Signals']]
 
+# 5) Collect vectors of from-to hlr modules and their list of signals {(hlrout,hlrin):[sigs]}
+#      and signals
+vector_list = {}
 for id in list(sig_dict.keys()):
-    outlist = list(set(hlrout_dict[id])) # use set to scrub for unique
+    outlist = list(set(hlrout_dict[id]))  # use set to scrub for unique
     inlist = list(set(hlrin_dict[id]))
     hlr_pair_list = [(x, y) for x in outlist for y in inlist]
     for hlr_pair in hlr_pair_list:
-        if hlr_pair[0] != hlr_pair[1]:
-            hlr_out = mod_dict[hlr_pair[0]]
-            hlr_in = mod_dict[hlr_pair[1]]
-            signal = sig_dict[id]
+        if hlr_pair in vector_list:
+            sigs = vector_list[hlr_pair]
+            sigs.append(id)
+            vector_list[hlr_pair] = sigs
+        else:
+            vector_list[hlr_pair] = [id]
+
+
+# 6) Write data to a csv file format suitable for pivot table analysis
+# Columns: HLR1, HLR2, Signal
+csv_data = [['HLR_Out', 'HLR_In', 'Signals']]
+
+for vector in vector_list:
+    if vector[0] != vector[1]:
+        hlr_out = mod_dict[vector[0]]
+        hlr_in = mod_dict[vector[1]]
+        for sig in vector_list[vector]:
+            signal = sig_dict[sig]
             csv_row = [hlr_out, hlr_in, signal]
             csv_data.append(csv_row)
 
 myFile = open(csvfile, 'w', newline='')
+with myFile:
+    writer = csv.writer(myFile)
+    writer.writerows(csv_data)
+myFile.close()
+
+
+# 7) Write data to .dot file suitable for generating graph with Graphiz
+myFile = open(dotfile, 'w')
+myFile.write("digraph HLR {\n")
+
+for vector in vector_list:
+    if vector[0] != vector[1]:
+        hlr_out = mod_dict[vector[0]]
+        hlr_in = mod_dict[vector[1]]
+        count_label = str(len(vector_list[vector]))
+        myFile.write(f'  {hlr_out} -> {hlr_in} [label="{count_label}"];\n')
+myFile.write("}\n")
+myFile.close()
+
+
+
+# =========== ERROR ===========
+# The current algorithm does not result in the correct data
+# The intention is to select signals that are consumed in only one HLR.
+# 8) Collect vectors of from-to hlr modules and their list of signals {(hlrout,hlrin):[sigs]}
+#      and signals where the signal only goes to one hlrin
+
+for i in hlrin_dict:
+    print(i, sig_dict[i], hlrin_dict[i])
+    for j in hlrin_dict[i]:
+        print("  ", j, mod_dict[j])
+
+vector_list = {}
+for id in list(sig_dict.keys()):
+    outlist = list(set(hlrout_dict[id]))  # use set to scrub for unique
+    inlist = []
+    inlist_temp = list(set(hlrin_dict[id]))
+    for temp in inlist_temp: # Pull signals that have only one hlrin
+        if len(hlrin_dict[temp]) == 1:
+            inlist.append(temp)
+
+    hlr_pair_list = [(x, y) for x in outlist for y in inlist]
+    for hlr_pair in hlr_pair_list:
+        if hlr_pair in vector_list:
+            sigs = vector_list[hlr_pair]
+            sigs.append(id)
+            vector_list[hlr_pair] = sigs
+        else:
+            vector_list[hlr_pair] = [id]
+
+
+# 8) Write data to a csv file format suitable for pivot table analysis
+#    where there is only one input hlr
+#    Columns: HLR1, HLR2, Signal
+csv_data = [['HLR_Out', 'HLR_In', 'Signals']]
+
+for vector in vector_list:
+    if vector[0] != vector[1] and len(vector_list[vector]) == 1:
+        hlr_out = mod_dict[vector[0]]
+        hlr_in = mod_dict[vector[1]]
+        for sig in vector_list[vector]:
+            signal =  sig_dict[sig]
+            csv_row = [hlr_out, hlr_in, signal]
+            csv_data.append(csv_row)
+
+myFile = open(csvfile2, 'w', newline='')
 with myFile:
    writer = csv.writer(myFile)
    writer.writerows(csv_data)
 myFile.close()
 
 
-# 6) Write data to .dot file suitable for generating graph with Graphiz
-myFile = open(dotfile, 'w')
+# 9) Write data to .dot file suitable for generating graph with Graphiz
+#    where there is only one input hlr
+myFile = open(dotfile2, 'w')
 myFile.write("digraph HLR {\n")
 
-hlr_pair_count = {} # Count the number of signals between hlrs { (hlrout, hlrin) : int )
-for id in list(sig_dict.keys()):
-    outlist = list(set(hlrout_dict[id])) # use set to scrub for unique
-    inlist = list(set(hlrin_dict[id]))
-    hlr_pair_list = [(x, y) for x in outlist for y in inlist]
-    for hlr_pair in hlr_pair_list:
-        if hlr_pair[0] != hlr_pair[1]:
-            if hlr_pair in hlr_pair_count:
-                hlr_pair_count[hlr_pair] += 1
-            else:
-                hlr_pair_count[hlr_pair] = 1
-print(hlr_pair_count)
-
-for hlr_pair in hlr_pair_count:
-    hlr_out = mod_dict[hlr_pair[0]]
-    hlr_in = mod_dict[hlr_pair[1]]
-    count_label = str(hlr_pair_count[hlr_pair])
-    myFile.write(f'  {hlr_out} -> {hlr_in} [label="{count_label}"];\n')
-
+for vector in vector_list:
+    if vector[0] != vector[1] and len(vector_list[vector]) == 1:
+        hlr_out = mod_dict[vector[0]]
+        hlr_in = mod_dict[vector[1]]
+        count_label = str(len(vector_list[vector]))
+        myFile.write(f'  {hlr_out} -> {hlr_in} [label="{count_label}"];\n')
+myFile.write("}\n")
 myFile.close()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# common_signal_list = sorted(list(set(input_signals.keys()).intersection(output_signals.keys())))
-# for sign in common_signal_list:
-#     for output in output_signals[sign]:
-#         for input in input_signals[sign]:
-#             # Create list of signals between modules in hlr_list; {(hlr_out, hlr_in): [list of signals]}
-#             if output != input and (output, input) in hlr_list:
-#                 sig_list = hlr_list[(output, input)]
-#                 sig_list.append(sign)
-#                 hlr_list[(output, input)] = sig_list
-#             else:
-#                 hlr_list[(output, input)] = [sign]
-#
-#             # Create list of hlr_in for each signals in sig_in_list; {signal: [hlr_in]}
-#             if output != input and sign in sig_in_list:
-#                 hlr_in_list = sig_in_list[sign]
-#                 hlr_in_list.append(input)
-#                 sig_in_list[sign] = hlr_in_list
-#             else:
-#                 sig_in_list[sign] = [input]
-# for hlr_pair in hlr_list:
-#     outhlr = hlr_pair[0]
-#     inhlr = hlr_pair[1]
-#     if outhlr != inhlr:
-#         sigcount = len(hlr_list[hlr_pair])
-#         count_label = str(sigcount)
-#         myFile.write(f'  {outhlr} -> {inhlr} [label="{count_label}"];\n')
-# myFile.write("}\n")
-# myFile.close()
-#
-
-
-
-# # Make version that shows pairs where there is only one input hlr
-# myFile = open(dotfile2, 'w')
-# myFile.write("digraph HLR {\n")
-#
-# hlr_pair_list = {}  # counter of hlr_pairs {hlr_pair : count}
-# for sign in sig_in_list:
-#     if len(sig_in_list[sign]) == 1:
-#         hlr_in = sig_in_list[sign][0]
-#         for hlr_pair in hlr_list:
-#             if hlr_in == hlr_pair[1]:
-#                 if hlr_pair[0] != hlr_pair[1] and sign in hlr_list[hlr_pair]:
-#                     if hlr_pair in hlr_pair_list:
-#                         sig_list = hlr_pair_list[hlr_pair]
-#                         sig_list.append(sign)
-#                     else:
-#                         sig_list = [sign]
-#                     hlr_pair_list[hlr_pair] = sig_list
-#
-# for hlr_pair in hlr_pair_list:
-#     hlr_out = hlr_pair[0]
-#     hlr_in = hlr_pair[1]
-#     label = str(len(hlr_pair_list[hlr_pair]))
-#     outhlr = hlr_pair[0]
-#     inhlr = hlr_pair[1]
-#     myFile.write(f'  {outhlr} -> {inhlr} [label="{label}"];\n')
-#
-# myFile.write("}\n")
-# myFile.close()
-#
-#
-# # Write data to a csv file format suitable for pivot table analysis
-# # Columns: HLR1, HLR2, Signal
-# csv_data = [['HLR_Out', 'HLR_In', 'Signals']]
-#
-# for hlr_pair in hlr_pair_list:
-#     hlr_out = hlr_pair[0]
-#     hlr_in = hlr_pair[1]
-#     if hlr_out != hlr_in:
-#         for sig in hlr_pair_list[hlr_pair]:
-#             csv_row = [hlr_out, hlr_in, sig]
-#             csv_data.append(csv_row)
-#
-# myFile = open(csvfile2, 'w', newline='')
-# with myFile:
-#    writer = csv.writer(myFile)
-#    writer.writerows(csv_data)
-# myFile.close()
-#
