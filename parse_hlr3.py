@@ -216,12 +216,13 @@ for id in list(sig_dict.keys()):
 csv_data = [['HLR_Out', 'HLR_In', 'Signals']]
 
 for vector in vector_list:
-    hlr_out = mod_dict[vector[0]]
-    hlr_in = mod_dict[vector[1]]
-    for sig in vector_list[vector]:
-        signal =  sig_dict[sig]
-        csv_row = [hlr_out, hlr_in, signal]
-        csv_data.append(csv_row)
+    if vector[0] != vector[1]:
+        hlr_out = mod_dict[vector[0]]
+        hlr_in = mod_dict[vector[1]]
+        for sig in vector_list[vector]:
+            signal =  sig_dict[sig]
+            csv_row = [hlr_out, hlr_in, signal]
+            csv_data.append(csv_row)
 
 myFile = open(csvfile2, 'w', newline='')
 with myFile:
@@ -236,9 +237,10 @@ myFile = open(dotfile2, 'w')
 myFile.write("digraph HLR {\n")
 
 for vector in vector_list:
-    hlr_out = mod_dict[vector[0]]
-    hlr_in = mod_dict[vector[1]]
-    count_label = str(len(vector_list[vector]))
-    myFile.write(f'  {hlr_out} -> {hlr_in} [label="{count_label}"];\n')
+    if vector[0] != vector[1]:
+        hlr_out = mod_dict[vector[0]]
+        hlr_in = mod_dict[vector[1]]
+        count_label = str(len(vector_list[vector]))
+        myFile.write(f'  {hlr_out} -> {hlr_in} [label="{count_label}"];\n')
 myFile.write("}\n")
 myFile.close()
