@@ -18,7 +18,7 @@
 
 # Usage: python parse_hlr3.py  (execute in directory with HLR text files)
 
-# Update Aug 9, 2018.  Adding colorization for HLR07, HLR10 and HLR14.
+# Note: This version identifies signals with the module they are found in.
 
 import sys
 import re
@@ -80,6 +80,8 @@ for filename in glob.iglob('*.txt'):
                 cur.execute('INSERT OR IGNORE INTO Signals (sig_name) VALUES (?)', (signal_name,))
                 cur.execute('SELECT sig_id FROM Signals WHERE sig_name = ?', (signal_name,))
                 signal_id = cur.fetchone()[0]
+                if signal_name == "[P0]":
+                    print(signal_name, module_name, io_state, hlrfile_line_count, module_id, signal_id)
                 cur.execute('INSERT INTO ModSigs (mod_sig_type, mod_sig_line, mod_id, sig_id) \
                     VALUES (?,?,?,?)', (io_state, hlrfile_line_count, module_id, signal_id))
 
@@ -100,6 +102,8 @@ sig_dict = {}
 cur.execute('SELECT sig_id, sig_name FROM signals')
 for row in cur:
     sig_dict[row[0]] = row[1]
+    if row[1] == "[P0]":
+        print(row)
 
 
 # 2) Create a dictionary of all modules { mod_id : mod_name}
@@ -116,6 +120,8 @@ for id in list(sig_dict.keys()):
     mods = []
     for mod in cur.fetchall():
         mods.append(mod[0])
+        if id == 397:
+            print("Output", mod)
     hlrout_dict[id] = mods
 
 
@@ -126,6 +132,8 @@ for id in list(sig_dict.keys()):
     mods = []
     for mod in cur.fetchall():
         mods.append(mod[0])
+        if id == 397:
+            print("Input", mod)
     hlrin_dict[id] = mods
 
 con.close()
@@ -145,10 +153,6 @@ for id in list(sig_dict.keys()):
         else:
             vector_list[hlr_pair] = [id]
 
-# cnt = 0
-# for vector in vector_list:
-#     cnt += 1
-#     print("1)", cnt, vector, vector_list[vector])
 
 # 6) Write data to a csv file format suitable for pivot table analysis
 # Columns: HLR1, HLR2, Signal
@@ -171,32 +175,15 @@ myFile.close()
 
 # 7) Write data to .dot file suitable for generating graph with Graphiz
 myFile = open(dotfile, 'w')
-myFile.write('digraph HLR {\n')
-myFile.write('node [style=filled];\n')
-myFile.write('HLR07 [color="lightblue"];\n')
-myFile.write('HLR08 [color="lightblue"];\n')
-myFile.write('HLR09 [color="lightblue"];\n')
-myFile.write('HLR10 [color="yellow"];\n')
+myFile.write("digraph HLR {\n")
 
 for vector in vector_list:
     hlr_out = mod_dict[vector[0]]
     hlr_in = mod_dict[vector[1]]
     count_label = str(len(vector_list[vector]))
-    if (hlr_out == hlr_in):
-        myFile.write(f'  {hlr_out} -> {hlr_in} [label="{count_label}", color="red", fontcolor="red"];\n')
-    else:
-        myFile.write(f'  {hlr_out} -> {hlr_in} [label="{count_label}"];\n')
+    myFile.write(f'  {hlr_out} -> {hlr_in} [label="{count_label}"];\n')
 myFile.write("}\n")
 myFile.close()
-
-
-# xx) Collect vectors of from-to hlr modules and their list of signals {(hlrout,hlrin):[sigs]}
-#      and signals where the signal only goes to one hlrin
-
-# for i in hlrin_dict:
-#     print(i, sig_dict[i], hlrin_dict[i])
-#     for j in hlrin_dict[i]:
-#         print("  ", j, mod_dict[j])
 
 vector_list = {}
 for id in list(sig_dict.keys()):
@@ -214,26 +201,19 @@ for id in list(sig_dict.keys()):
                 sigs = vector_list[hlr_pair]
 
 
-# cnt = 0
-# for vector in vector_list:
-#     cnt += 1
-#     print("2)", cnt, vector, vector_list[vector])
-
-
 # 8) Write data to a csv file format suitable for pivot table analysis
 #    where there is only one input hlr
 #    Columns: HLR1, HLR2, Signal
 csv_data = [['HLR_Out', 'HLR_In', 'Signals']]
-input_output_modules = {'HLR07', 'HLR08', 'HLR09', 'HLR10'}
+
 for vector in vector_list:
-    if vector[0] != vector[1]:  # Not input and output in same module
+    if vector[0] != vector[1]:
         hlr_out = mod_dict[vector[0]]
         hlr_in = mod_dict[vector[1]]
-        if (hlr_out in input_output_modules) or  (hlr_in in input_output_modules):
-            for sig in vector_list[vector]:
-                signal =  sig_dict[sig]
-                csv_row = [hlr_out, hlr_in, signal]
-                csv_data.append(csv_row)
+        for sig in vector_list[vector]:
+            signal =  sig_dict[sig]
+            csv_row = [hlr_out, hlr_in, signal]
+            csv_data.append(csv_row)
 
 myFile = open(csvfile2, 'w', newline='')
 with myFile:
@@ -245,22 +225,13 @@ myFile.close()
 # 9) Write data to .dot file suitable for generating graph with Graphiz
 #    where there is only one input hlr
 myFile = open(dotfile2, 'w')
-myFile.write('digraph HLR {\n')
-myFile.write('node [style=filled];\n')
-myFile.write('HLR07 [color="lightblue"];\n')
-myFile.write('HLR08 [color="lightblue"];\n')
-myFile.write('HLR09 [color="lightblue"];\n')
-myFile.write('HLR10 [color="yellow"];\n')
+myFile.write("digraph HLR {\n")
 
 for vector in vector_list:
-    if vector[0] != vector[1]:  # Not input and output in same module
+    if vector[0] != vector[1]:
         hlr_out = mod_dict[vector[0]]
         hlr_in = mod_dict[vector[1]]
-        if (hlr_out in input_output_modules) or  (hlr_in in input_output_modules):
-            count_label = str(len(vector_list[vector]))
-            if (hlr_out == hlr_in):
-                myFile.write(f'  {hlr_out} -> {hlr_in} [label="{count_label}", color="red", fontcolor="red"];\n')
-            else:
-                myFile.write(f'  {hlr_out} -> {hlr_in} [label="{count_label}"];\n')
+        count_label = str(len(vector_list[vector]))
+        myFile.write(f'  {hlr_out} -> {hlr_in} [label="{count_label}"];\n')
 myFile.write("}\n")
 myFile.close()
